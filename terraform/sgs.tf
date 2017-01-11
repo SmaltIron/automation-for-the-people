@@ -46,6 +46,15 @@ resource "aws_security_group_rule" "allow_all_outbound_443" {
   security_group_id        = "${aws_security_group.instance.id}"
 }
 
+resource "aws_security_group_rule" "allow_all_outbound_80" {
+  type                     = "egress"
+  from_port                = 80
+  to_port                  = 80
+  protocol                 = "tcp"
+  cidr_blocks              = ["0.0.0.0/0"]
+  security_group_id        = "${aws_security_group.instance.id}"
+}
+
 # elb security group -----------------------------------------------------------
 
 resource "aws_security_group" "elb" {

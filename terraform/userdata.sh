@@ -1,5 +1,37 @@
 #!/usr/bin/env bash
 
+# ---- Update Yum ----
+
+yum update -y
+
+
+# ---- Install Salt ----
+
+tee /etc/yum.repos.d/saltstack.repo <<-'EOF'
+[saltstack-repo]
+name=SaltStack repo for RHEL/CentOS 6
+baseurl=https://repo.saltstack.com/yum/redhat/6/$basearch/latest
+enabled=1
+gpgcheck=1
+gpgkey=https://repo.saltstack.com/yum/redhat/6/$basearch/latest/SALTSTACK-GPG-KEY.pub
+EOF
+
+yum install salt-master -y
+yum install salt-minion -y
+yum install salt-ssh -y
+yum install salt-syndic -y
+yum install salt-syndic -y
+
+
+tee /etc/salt/minion <<-'EOF'
+master: saltmaster.example.com
+EOF
+
+service salt-master start
+salt-minion -d
+sleep 10
+salt-key -A -y
+
 # ---- Install Docker Image ----
 
 # -- Pull Docker Image from Docker hub

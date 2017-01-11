@@ -34,8 +34,7 @@ resource "aws_launch_configuration" "aftp-lc" {
 
   security_groups       = ["${aws_security_group.instance.id}"]
   user_data             = "${data.template_file.userdata.rendered}"
-  associate_public_ip_address = "false"
-  #key_name = "tacit-general"
+  key_name = "tacit-general"
 }
 
 # userdata template ------------------------------------------------------------
