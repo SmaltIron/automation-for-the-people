@@ -67,7 +67,7 @@ resource "aws_security_group" "elb" {
   }
 }
 
-resource "aws_security_group_rule" "allow_all_inbound_80" {
+resource "aws_security_group_rule" "elb_allow_all_inbound_80" {
   type                     = "ingress"
   from_port                = "${var.elb_lb_port}"
   to_port                  = "${var.elb_lb_port}"
@@ -76,7 +76,7 @@ resource "aws_security_group_rule" "allow_all_inbound_80" {
   security_group_id        = "${aws_security_group.elb.id}"
 }
 
-resource "aws_security_group_rule" "allow_all_outbound_80" {
+resource "aws_security_group_rule" "elb_allow_all_outbound_80" {
   type                     = "egress"
   from_port                = "${var.elb_instance_port}"
   to_port                  = "${var.elb_instance_port}"

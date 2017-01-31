@@ -1,60 +1,68 @@
 #!/usr/bin/env bash
 
-# ---- Update Yum ----
-
-yum update -y
-
-
-# ---- Install Salt ----
-
-tee /etc/yum.repos.d/saltstack.repo <<-'EOF'
-[saltstack-repo]
-name=SaltStack repo for RHEL/CentOS 6
-baseurl=https://repo.saltstack.com/yum/redhat/6/$basearch/latest
-enabled=1
-gpgcheck=1
-gpgkey=https://repo.saltstack.com/yum/redhat/6/$basearch/latest/SALTSTACK-GPG-KEY.pub
-EOF
-
-yum install salt-master -y
-yum install salt-minion -y
-yum install salt-ssh -y
-yum install salt-syndic -y
-yum install salt-syndic -y
+# # ---- Update Yum ----
+#
+# yum update -y
 
 
-tee /etc/salt/minion <<-'EOF'
-master: saltmaster.example.com
-EOF
+# ---- Install Chef ----
 
-service salt-master start
-salt-minion -d
-sleep 10
-salt-key -A -y
+yum install -y ruby
+curl -L https://www.opscode.com/chef/install.sh | bash
 
-# ---- Install Docker Image ----
 
-# -- Pull Docker Image from Docker hub
+# -- Install Ruby 2.2.2 / Berkshelf
 
-mkdir -p /docker
+yum install -y git-core zlib zlib-devel gcc-c++ patch readline readline-devel libyaml-devel libffi-devel openssl-devel make bzip2 autoconf automake libtool bison curl sqlite-devel
 
-docker pull ${docker_image}
+git clone https://github.com/rbenv/rbenv.git ~/.rbenv
+cd ~/.rbenv && src/configure && make -C src
+echo 'export PATH="$HOME/.rbenv/bin:$PATH"' >> ~/.bash_profile
+~/.rbenv/bin/rbenv init
+echo 'eval "$(rbenv init -)"' >> ~/.bash_profile
+source /root/.bash_profile
 
-# -- Write html file
+git clone https://github.com/sstephenson/ruby-build.git $HOME/.rbenv/plugins/ruby-build
+echo 'export PATH="$HOME/.rbenv/plugins/ruby-build/bin:$PATH"' >> $HOME/.bash_profile
+source /root/.bash_profile
 
-mkdir -p /var/www/
+rbenv install -v 2.2.2
+rbenv global 2.2.2
 
-tee /var/www/index.html <<-'EOF'
-<!DOCTYPE html>
-<html>
-<head>
-<title>Automation for the People</title>
-</head>
-<body>
-Automation for the People
-</body>
-</html>
-EOF
+gem install berkshelf
+
+
+# ---- Chef Configure ----
+
+cd /root/
+mkdir -p .chef
+echo "cookbook_path [ '/root/chef-repo/cookbooks' ]" > .chef/knife.rb
+
+
+# ---- Install Chef Repo ----
+
+cd /root/
+curl -O https://github.com/SmaltIron/automation-for-the-people/tree/feature/terraform-chef-asg/chef/chef-repo.tar.gz
+tar -xf chef-repo.tar.gz
+
+
+# ---- Install Chef Deps with Berkshelf ----
+
+berksIns() {
+  cd /root/chef-repo/cookbooks/automation-for-the-people/
+  rm -f Berksfile.lock
+  berks vendor /root/chef-repo/cookbooks/
+}
+berksIns;
+
+
+# ---- Chef Run ----
+
+runChef() {
+  cd /root/chef-repo/
+  chef-solo -c solo.rb -j web.json
+}
+runChef;
 
 
 # -- Write env data data
@@ -69,68 +77,3 @@ tee /var/www/_env.json <<-EOF
   "az" : "$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone)"
 }
 EOF
-
-
-# -- Write service start/stop/restart script
-
-tee /etc/init.d/automation-for-the-people <<-'EOF'
-#!/bin/bash
-#
-# automation-for-the-people   Startup script for the Application
-#
-# chkconfig: - 85 15
-# description: The Application  \
-#
-# processname: automation-for-the-people
-#
-
-start(){
-        echo "Starting automation-for-the-people..."
-
-        exists=$(docker ps -a -f name=automation-for-the-people -q)
-
-        if [ -z "$exists" ]; then
-          docker run --name automation-for-the-people \
-            -p 80:80 \
-            -v /var/www:/usr/share/nginx/html:ro -d nginx
-        else
-          docker start automation-for-the-people
-        fi
-}
-
-stop(){
-        echo "Stopping automation-for-the-people..."
-
-        docker stop automation-for-the-people
-}
-
-restart(){
-        stop
-        sleep 60
-        start
-}
-
-case "$1" in
-  start)
-        start
-        ;;
-  stop)
-        stop
-        ;;
-  restart)
-        restart
-        ;;
-  *)
-        echo "Usage: automation-for-the-people {start|stop|restart}"
-        exit 1
-esac
-
-exit 0
-EOF
-
-
-# -- Set script with runable permissions and start as a service
-
-chmod 755 /etc/init.d/automation-for-the-people
-chkconfig automation-for-the-people on
-service automation-for-the-people start
